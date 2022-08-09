@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  keeper_postgres:
+    image: postgres:12.4-alpine
+    ports:
+      - 5432:5432
+    logging:
+      driver: none
+    environment:
+      - POSTGRES_PASSWORD=keeper
+      - POSTGRES_USER=keeper
+      - POSTGRES_DB=keeper
+    networks:
+      - keeper_ecosystem 
+
+  keeper_nats_server:
+    image: 'nats:2.7.3' 
+    expose:
+      - "4222"
+    ports:
+      - "4222:4222"
+      - "8222:8222" 
+    networks:
+      - keeper_ecosystem  
+ 
+networks:
+  keeper_ecosystem:
+    name: keeper_ecosystem
+    driver: bridge

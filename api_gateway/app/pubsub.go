@@ -1,9 +1,7 @@
-package lib
+package app
 
 import (
 	"encoding/json"
-
-	"github.com/n0byk/keeper/engine"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -13,15 +11,16 @@ var (
 	register    = "register"
 	subscribe   = "subscribe"
 	unsubscribe = "unsubscribe"
+	keep        = "keep"
 )
 
-func (ps *engine.Pubsub) subscribe(client *engine.Client, topic string) *engine.Pubsub {
+func (ps *Pubsub) subscribe(client *Client, topic string) *Pubsub {
 	clientSub := ps.getSubscriptions(topic, client)
 	if len(clientSub) > 0 {
 		// Means client is subscribed before to this topic
 		return ps
 	}
-	newSubscription := engine.Subscription{
+	newSubscription := Subscription{
 		Topic:  topic,
 		Client: client,
 	}
@@ -29,7 +28,7 @@ func (ps *engine.Pubsub) subscribe(client *engine.Client, topic string) *engine.
 	return ps
 }
 
-func (ps *engine.Pubsub) publish(topic string, message string, excludedClient *engine.Client) {
+func (ps *Pubsub) publish(topic string, message string, excludedClient *Client) {
 	subscriptions := ps.getSubscriptions(topic, nil)
 	for _, subscription := range subscriptions {
 		log.Println("Sending to client: ", subscription.Client.ID)
@@ -38,12 +37,12 @@ func (ps *engine.Pubsub) publish(topic string, message string, excludedClient *e
 	}
 }
 
-func (client *engine.Client) send(message string) error {
+func (client *Client) send(message string) error {
 	return client.Conn.WriteMessage(1, []byte(message))
 }
 
 // unsubscribe function for removing subscription from the pubsub
-func (ps *engine.Pubsub) unsubscribe(client *engine.Client, topic string) *engine.Pubsub {
+func (ps *Pubsub) unsubscribe(client *Client, topic string) *Pubsub {
 	for index, sub := range ps.Subscriptions {
 		if sub.Client.ID == client.ID && sub.Topic == topic {
 			// Found the subscription from client
@@ -54,7 +53,7 @@ func (ps *engine.Pubsub) unsubscribe(client *engine.Client, topic string) *engin
 }
 
 // RemoveClient function for removing the clients from the socket
-func (ps *engine.Pubsub) RemoveClient(client engine.Client) *engine.Pubsub {
+func (ps *Pubsub) RemoveClient(client Client) *Pubsub {
 	// First remove all the subscription of this client
 	for index, sub := range ps.Subscriptions {
 		if client.ID == sub.Client.ID {
@@ -70,8 +69,8 @@ func (ps *engine.Pubsub) RemoveClient(client engine.Client) *engine.Pubsub {
 	return ps
 }
 
-func (ps *engine.Pubsub) getSubscriptions(topic string, client *engine.Client) []engine.Subscription {
-	var subscriptionList []engine.Subscription
+func (ps *Pubsub) getSubscriptions(topic string, client *Client) []Subscription {
+	var subscriptionList []Subscription
 	for _, subscription := range ps.Subscriptions {
 		if client != nil {
 			if subscription.Client.ID == client.ID && subscription.Topic == topic {
@@ -87,7 +86,7 @@ func (ps *engine.Pubsub) getSubscriptions(topic string, client *engine.Client) [
 }
 
 // AddClient function for adding new client to the list
-func (ps *engine.Pubsub) AddClient(client engine.Client) *engine.Pubsub {
+func (ps *Pubsub) AddClient(client Client) *Pubsub {
 	ps.Clients = append(ps.Clients, client)
 	log.Info("Adding a new client to the list: ", client.ID)
 	payload := []byte("Hello Client ID" + client.ID)
@@ -96,8 +95,8 @@ func (ps *engine.Pubsub) AddClient(client engine.Client) *engine.Pubsub {
 }
 
 // HandleReceivedMessage for hendling the recieved message from the server.
-func (ps *engine.Pubsub) HandleReceivedMessage(client engine.Client, messageType int, payload []byte) *engine.Pubsub {
-	m := engine.Message{}
+func (ps *Pubsub) HandleReceivedMessage(client Client, messageType int, payload []byte) *Pubsub {
+	m := Message{}
 	err := json.Unmarshal(payload, &m)
 	if err != nil {
 		log.Println(err)
@@ -116,8 +115,20 @@ func (ps *engine.Pubsub) HandleReceivedMessage(client engine.Client, messageType
 		ps.unsubscribe(&client, m.Topic)
 		break
 	case register:
-		// RegistrationRequest()
-		ps.unsubscribe(&client, m.Topic)
+		message, err := Registration(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+	case keep:
+		message, err := KeepData(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
 		break
 	default:
 		break

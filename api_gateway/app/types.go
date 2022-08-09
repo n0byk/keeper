@@ -1,4 +1,4 @@
-package engine
+package app
 
 import (
 	"context"
@@ -41,4 +41,9 @@ type Distribution struct {
 type RegistrationRequest struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+}
+
+type KeepDataRequest struct {
+	Token   string `json:"token"`
+	Message string `json:"message"`
 }

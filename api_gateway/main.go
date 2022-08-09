@@ -3,9 +3,7 @@ package main
 import (
 	"net/http"
 
-	"github.com/n0byk/keeper/engine"
-
-	"github.com/n0byk/keeper/api_gateway/lib/distribution"
+	"github.com/n0byk/keeper/api_gateway/app"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -22,7 +20,7 @@ func IDGen() string {
 	return uuid.Must(uuid.New(), nil).String()
 }
 
-var ps = &engine.Pubsub{}
+var ps = &app.Pubsub{}
 
 func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	upgrader.CheckOrigin = func(r *http.Request) bool {
@@ -33,7 +31,7 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := engine.Client{
+	client := app.Client{
 		ID:   IDGen(),
 		Conn: conn,
 	}
@@ -56,8 +54,8 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	distribution.NewConnection()
+	app.NewConnection()
 	http.HandleFunc("/ws", websocketHandler)
 	log.Info("Server started on port 8080...")
-	go http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", nil)
 }
