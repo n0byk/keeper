@@ -2,16 +2,22 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	publish     = "publish"
-	register    = "register"
-	subscribe   = "subscribe"
-	unsubscribe = "unsubscribe"
-	keep        = "keep"
+	publish        = "publish"
+	subscribe      = "subscribe"
+	unsubscribe    = "unsubscribe"
+	register       = "register"
+	auth           = "auth"
+	LobbyCreate    = "create_lobby"
+	GetPublicToken = "get_public_token"
+	GetLobbyId     = "lobby_id"
+	LobbyInvite    = "invite_lobby"
+	setData        = "set_data"
 )
 
 func (ps *Pubsub) subscribe(client *Client, topic string) *Pubsub {
@@ -89,7 +95,7 @@ func (ps *Pubsub) getSubscriptions(topic string, client *Client) []Subscription 
 func (ps *Pubsub) AddClient(client Client) *Pubsub {
 	ps.Clients = append(ps.Clients, client)
 	log.Info("Adding a new client to the list: ", client.ID)
-	payload := []byte("Hello Client ID" + client.ID)
+	payload := []byte("Hello anonymous")
 	client.Conn.WriteMessage(1, payload)
 	return ps
 }
@@ -105,16 +111,31 @@ func (ps *Pubsub) HandleReceivedMessage(client Client, messageType int, payload 
 	}
 	switch m.Action {
 	case publish:
-		ps.publish(m.Topic, m.Message, nil)
+		message, err := SetData(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+			break
+		}
+		fmt.Println(message)
+		ps.publish(m.LobbyName, message, nil)
 		break
 	case subscribe:
-		ps.subscribe(&client, m.Topic)
-		log.Println("New subscriber to topic: ", m.Topic, len(ps.Subscriptions))
+		message, err := ValidatePermissions(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+			break
+		}
+		client.send(message)
+		ps.subscribe(&client, message)
+		log.Println("New subscriber to topic: ", message, len(ps.Subscriptions))
 		break
 	case unsubscribe:
-		ps.unsubscribe(&client, m.Topic)
+		ps.unsubscribe(&client, m.LobbyName)
 		break
 	case register:
+
 		message, err := Registration(payload)
 		if err != nil {
 			log.Println(err)
@@ -122,14 +143,58 @@ func (ps *Pubsub) HandleReceivedMessage(client Client, messageType int, payload 
 		}
 		client.send(message)
 		break
-	case keep:
-		message, err := KeepData(payload)
+
+	case auth:
+		message, err := Authenticate(payload)
 		if err != nil {
 			log.Println(err)
 			client.send("")
 		}
 		client.send(message)
 		break
+
+	case LobbyCreate:
+		message, err := CreateLobby(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+
+	case GetLobbyId:
+		message, err := PublicGetLobbyId(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+	case GetPublicToken:
+		message, err := PublicTokenGet(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+	case LobbyInvite:
+		message, err := AddToLobby(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+	case setData:
+		message, err := AddToLobby(payload)
+		if err != nil {
+			log.Println(err)
+			client.send("")
+		}
+		client.send(message)
+		break
+
 	default:
 		break
 	}
