@@ -1,0 +1,15 @@
+FROM golang:1.18.1-alpine3.15 AS builder 
+
+RUN apk update && apk add --no-cache git
+
+WORKDIR $GOPATH/api_gateway/
+
+COPY ./api_gateway .
+
+RUN ls
+
+RUN go get -d -v ./
+
+RUN go build -o /go/cmd/api_gateway ./
+
+ENTRYPOINT ["/go/cmd/api_gateway"]
